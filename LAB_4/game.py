@@ -6,11 +6,8 @@ WIDTH, HEIGHT = 600, 700
 PLAYER_Y, PLAYER_SPEED, SHIP_GAP = HEIGHT - 50, 300, 30
 ENTRY_TIME = 2.0
 
-game_wave = 1
-
 
 def bezier(p0, p1, p2, p3, t):
-    """Calculate a point on a cubic Bezier curve."""
     u = 1 - t
     x = (
         u ** 3 * p0[0]
@@ -28,37 +25,24 @@ def bezier(p0, p1, p2, p3, t):
 
 
 def enemy_tint(kind):
-    """Return a colour override based on the current wave."""
-    if game_wave >= 6:
-        colors = {
-            "boss": (255, 100, 255),
-            "red": (255, 120, 120),
-            "blue": (120, 200, 255),
-        }
-        return colors.get(kind)
-
-    if game_wave >= 3:
-        colors = {
-            "boss": (255, 180, 80),
-            "red": (255, 120, 60),
-            "blue": (100, 220, 220),
-        }
-        return colors.get(kind)
-
+    """Return an (r, g, b) colour override for an enemy kind, or None for the default."""
+    if kind == "boss":
+        return (255, 180, 60)
+    if kind == "red":
+        return (255, 100, 100)
+    if kind == "blue":
+        return (100, 200, 255)
     return None
 
 
 def on_wave_start(wave):
-    """Update the current wave when a new wave starts."""
-    global game_wave
-    game_wave = wave
+    """Called at the start of every wave; add banners, speed-ups, or palette swaps here."""
+    pass
 
 
 def shield_charges(wave):
-    """Give the player one shield charge every three waves."""
-    if wave % 3 == 0:
-        return 1
-    return 0
+    """Return how many hits the player's shield can absorb this wave, or None to disable the shield."""
+    pass
 
 
 ENEMY_COLORS = {
@@ -74,8 +58,7 @@ class Enemy:
         self.hp = 2 if kind == "boss" else 1
         self.state, self.t, self.delay = "entry", 0.0, index * 0.12
         self.pos = pygame.Vector2(
-            -40 if from_left else WIDTH + 40,
-            120,
+            -40 if from_left else WIDTH + 40, 120
         )
         side = 1 if from_left else -1
         self.path = (
@@ -88,10 +71,7 @@ class Enemy:
 
     def start_dive(self, player_x):
         side = random.choice([-1, 1])
-        end = (
-            random.randint(60, WIDTH - 60),
-            HEIGHT + 40,
-        )
+        end = (random.randint(60, WIDTH - 60), HEIGHT + 40)
         self.path = (
             tuple(self.pos),
             (self.pos.x + side * 160, self.pos.y + 160),
@@ -140,11 +120,7 @@ class Enemy:
 
 
 def spawn_wave(wave):
-    """Create all enemies for a new wave."""
-    on_wave_start(wave)
-
     enemies, index = [], 0
-
     layout = [
         ("boss", 4, 90),
         ("red", 8, 130),
@@ -156,15 +132,11 @@ def spawn_wave(wave):
         for i in range(count):
             x = WIDTH / 2 + (i - (count - 1) / 2) * 52
             enemies.append(
-                Enemy(
-                    kind,
-                    (x, y),
-                    index,
-                    index % 2 == 0,
-                )
+                Enemy(kind, (x, y), index, index % 2 == 0)
             )
             index += 1
 
+    on_wave_start(wave)
     return enemies
 
 
@@ -184,31 +156,23 @@ class Game:
         self.x, self.ships, self.lives = WIDTH / 2, 1, 3
         self.score, self.wave, self.time = 0, 1, 0.0
         self.bullets, self.shots = [], []
-        self.cooldown = 0.0
-        self.invulnerable = 0.0
-        self.dive_timer = 3.0
-
+        self.cooldown, self.invulnerable, self.dive_timer = (
+            0.0,
+            0.0,
+            3.0,
+        )
         self.enemies = spawn_wave(self.wave)
         self.shield = shield_charges(self.wave) or 0
         self.state = "play"
 
     def ship_xs(self):
-        return [
-            self.x + i * SHIP_GAP
-            for i in range(self.ships)
-        ]
+        return [self.x + i * SHIP_GAP for i in range(self.ships)]
 
     def fire(self):
-        if (
-            self.cooldown <= 0
-            and len(self.bullets) < 4 * self.ships
-        ):
+        if self.cooldown <= 0 and len(self.bullets) < 4 * self.ships:
             for sx in self.ship_xs():
                 self.bullets.append(
-                    pygame.Vector2(
-                        sx,
-                        PLAYER_Y - 16,
-                    )
+                    pygame.Vector2(sx, PLAYER_Y - 16)
                 )
             self.cooldown = 0.25
 
@@ -225,7 +189,6 @@ class Game:
             self.ships -= 1
         else:
             self.lives -= 1
-
             if self.lives <= 0:
                 self.state = "lose"
 
@@ -233,10 +196,7 @@ class Game:
 
     def kill(self, enemy):
         self.enemies.remove(enemy)
-
-        self.score += (
-            100 if enemy.state == "dive" else 50
-        )
+        self.score += 100 if enemy.state == "dive" else 50
 
         if enemy.kind == "boss" and enemy.state == "dive":
             self.ships = 2
@@ -248,16 +208,11 @@ class Game:
         self.time += dt
         self.cooldown -= dt
         self.invulnerable = max(
-            0.0,
-            self.invulnerable - dt,
+            0.0, self.invulnerable - dt
         )
 
         span = SHIP_GAP * (self.ships - 1)
-
-        move = (
-            keys[pygame.K_RIGHT]
-            - keys[pygame.K_LEFT]
-        )
+        move = keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]
 
         self.x = max(
             20,
@@ -271,9 +226,7 @@ class Game:
             self.fire()
 
         for star in self.stars:
-            star[1] = (
-                star[1] + star[2] * dt
-            ) % HEIGHT
+            star[1] = (star[1] + star[2] * dt) % HEIGHT
 
         sway = math.sin(self.time * 1.3) * 24
 
@@ -288,14 +241,12 @@ class Game:
         self.dive_timer -= dt
 
         ready = [
-            e
-            for e in self.enemies
+            e for e in self.enemies
             if e.state == "formation"
         ]
 
         if self.dive_timer <= 0 and ready:
             random.choice(ready).start_dive(self.x)
-
             self.dive_timer = max(
                 0.8,
                 3.0 - self.wave * 0.3,
@@ -306,9 +257,7 @@ class Game:
         if not self.enemies:
             self.wave += 1
             self.enemies = spawn_wave(self.wave)
-            self.shield = (
-                shield_charges(self.wave) or 0
-            )
+            self.shield = shield_charges(self.wave) or 0
 
     def update_projectiles(self, dt):
         for bullet in self.bullets[:]:
@@ -328,8 +277,7 @@ class Game:
                     break
 
         self.bullets = [
-            b
-            for b in self.bullets
+            b for b in self.bullets
             if b.y > -10
         ]
 
@@ -337,8 +285,7 @@ class Game:
             shot.y += 260 * dt
 
         self.shots = [
-            s
-            for s in self.shots
+            s for s in self.shots
             if s.y < HEIGHT
         ]
 
@@ -353,8 +300,7 @@ class Game:
                 for s in self.shots
             ):
                 self.shots = [
-                    s
-                    for s in self.shots
+                    s for s in self.shots
                     if s.distance_to(target) >= 14
                 ]
                 self.hit_player()
@@ -373,7 +319,6 @@ class Game:
 
         for x, y, speed in self.stars:
             shade = int(80 + speed)
-
             pygame.draw.circle(
                 screen,
                 (shade, shade, shade),
@@ -390,10 +335,7 @@ class Game:
                 or ENEMY_COLORS[enemy.kind]
             )
 
-            if (
-                enemy.kind == "boss"
-                and enemy.hp == 1
-            ):
+            if enemy.kind == "boss" and enemy.hp == 1:
                 color = (170, 90, 220)
 
             x, y = enemy.pos
@@ -469,11 +411,8 @@ class Game:
                 )
 
         hud = font.render(
-            f"Score {self.score}  "
-            f"Lives {self.lives}  "
-            f"Wave {self.wave}  "
-            f"Shield {self.shield}  "
-            f"R = reset",
+            f"Score {self.score}  Lives {self.lives}  "
+            f"Wave {self.wave}  R = reset",
             True,
             (240, 240, 240),
         )
@@ -490,10 +429,7 @@ class Game:
             screen.blit(
                 label,
                 label.get_rect(
-                    center=(
-                        WIDTH // 2,
-                        HEIGHT // 2,
-                    )
+                    center=(WIDTH // 2, HEIGHT // 2)
                 ),
             )
 
@@ -509,7 +445,6 @@ def main():
 
     clock = pygame.time.Clock()
     font = pygame.font.Font(None, 26)
-
     game = Game()
     running = True
 
