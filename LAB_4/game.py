@@ -37,9 +37,7 @@ def enemy_tint(kind):
 
 def on_wave_start(wave):
     """Called at the start of every wave; add banners, speed-ups, or palette swaps here."""
-    pass
-
-
+    print(f"Wave {wave} started!")
 def shield_charges(wave):
     """Return how many hits the player's shield can absorb this wave, or None to disable the shield."""
     pass
