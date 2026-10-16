@@ -40,8 +40,7 @@ def on_wave_start(wave):
     print(f"Wave {wave} started!")
 def shield_charges(wave):
     """Return how many hits the player's shield can absorb this wave, or None to disable the shield."""
-    pass
-
+    return min(3, 1 + wave // 2)
 
 ENEMY_COLORS = {
     "boss": (90, 220, 90),
